@@ -6,9 +6,11 @@ param(
     $SubscriptionName
     )
 
-
-$ErrorActionPreference = "silentlyContinue"   
+$InformationPreference = "Continue"
+$WarningPreference = "SilentlyContinue"
+$ErrorActionPreference = "Continue"   
 $connectionName = "AzureRunAsConnection"
+
 try
 {
     # Get the connection "AzureRunAsConnection "
@@ -36,9 +38,7 @@ catch
 Select-AzureRmSubscription -Subscription $SubscriptionName
 
 $vmList = Get-AzureRmResource -ResourceType Microsoft.Compute/virtualMachines
-
-$inlineDate = Get-Date
-$inlineDate = $inlineDate.AddHours(-60)
+$inlineDate = (Get-Date).AddHours(-60)
 
 ForEach -Parallel ($vmObject in $vmList) 
 {
