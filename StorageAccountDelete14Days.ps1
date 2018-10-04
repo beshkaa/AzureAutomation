@@ -1,0 +1,3 @@
+workflow StorageAccountDelete14Days
+{
+}
