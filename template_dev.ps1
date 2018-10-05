@@ -1,44 +1,30 @@
 
 #Delete VM after 14 Days of deallocation state.
-Workflow VMDelete14Days
+Workflow StorageAccountDelete14Days
 {
     param(
          [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
          [String]
-         $SubscriptionName,
-
-         [Parameter(Mandatory = $false)]
-         [String[]]
-         $VmNameExclusionList,
-
-         [Parameter(Mandatory = $false)]
-         [String[]]
-         $ResourceGroupNameExclusionList
-    )
+         $SubscriptionName
+         )
 
 
     $SubscriptionName = "Enterprise - SE - Restore to Azure" #[<----- dev] 
     Select-AzureRmSubscription -Subscription $SubscriptionName
 
-    $vmList = Get-AzureRmResource -ResourceType Microsoft.Compute/virtualMachines
+    $storageAccountList = Get-AzureRmResource -ResourceType Microsoft.Storage/storageAccounts
 
     $inlineDate = (Get-Date).AddDays(-14)
-    # [TBD] $inlineDate = $inlineDate.AddDays(-14)
 
-    ForEach -Parallel ($vmObject in $vmList) 
+    ForEach -Parallel ($storageAccountObject in $storageAccountList) 
     {
-        if ((Get-AzureRmVm -Name $vmObject.Name -ResourceGroupName $vmObject.ResourceGroupName -Status).Statuses[1].Code -eq "Powerstate/deallocated")
-        {
-           $vmLog = Get-AzureRmLog -StartTime $inlineDate -ResourceId $vmObject.Id | Where-Object {($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/start/action") -or ($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/write")}
-           if (![boolean]$vmLog)
+        $storageAccountLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $storageAccountObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Storage/storageAccounts/write"
+           if (![boolean]$storageAccountLog)
               {
-                  Write-Output "$($vmObject.Id) Should be deleted"
+                  Write-Output "$($storageAccountObject.Id) Should be deleted"
                }
-       }
-    
-    
     }
 
 }
 
-VmTracker -SubscriptionName "Enterprise - SE - Restore to Azure" -Verbose
+StorageAccountDelete14Days -SubscriptionName "Enterprise - SE - Restore to Azure" -Verbose
