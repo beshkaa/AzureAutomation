@@ -3,10 +3,10 @@
 Workflow DiskDelete14Days {
     #Expecting subscription as a parameter
     param(
-         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
-         [String]
-         $SubscriptionName
-         )
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
+        [String]
+        $SubscriptionName
+    )
 
     #Enviroment behavior 
     $InformationPreference = "Continue"
@@ -28,13 +28,13 @@ Workflow DiskDelete14Days {
     }
     catch {
         if (!$servicePrincipalConnection) {
-                $ErrorMessage = "Connection $connectionName not found."
-                throw $ErrorMessage
+            $ErrorMessage = "Connection $connectionName not found."
+            throw $ErrorMessage
         }
         else {
             Write-Error -Message $_.Exception
             throw $_.Exception
-            }
+        }
     }
 
 
@@ -46,12 +46,12 @@ Workflow DiskDelete14Days {
     $diskList = Get-AzureRmDisk
     ForEach -Parallel ($diskObject in $diskList) {
         if ($null -eq $diskObject.ManagedBy) {
-           $vmLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $diskObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Compute/disks/write"
+            $vmLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $diskObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Compute/disks/write"
             if (![boolean]$vmLog) {
                 Write-Output "$($diskObject.DiskSizeGB)GB - $($diskObject.Id) should be deleted"
                 $diskObject | Remove-AzureRmDisk -Force
-           }
-       }
+            }
+        }
        
     }
 
@@ -62,18 +62,18 @@ Workflow DiskDelete14Days {
        
         # Context is desearilized -- here and after not able to store in variable 
         $containerList = Get-AzureStorageContainer -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
-
+     
         ForEach -Parallel ($containerObject in $containerList) {
             $blobList = Get-AzureStorageBlob -Container $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
-
+           
             #Fetch all the Page blobs with extension, unlocked, with .vhd as only Page blobs can be attached as disk to Azure VMs
             ForEach -Parallel ($blobObject in $blobList) {
-
+               
                 #[DEBUG] write-output " $($blobObject.BlobType)     $((Get-AzureStorageBlob -Container $containerObject.Name -Blob $blobObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)).ICloudBlob.Properties.LeaseStatus)     $($blobObject.LastModified)     $($blobObject.Name)" 
                 #Can move circumstances for optimization
                 if (($blobObject.Name -match "\.vhd" ) -and (((Get-AzureStorageBlob -Container $containerObject.Name -Blob $blobObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)).ICloudBlob.Properties.LeaseStatus) -eq 'Unlocked') -and ($blobObject.LastModified -le $inlineDate) -and ($blobObject.BlobType -eq 'PageBlob')) {
                     Write-Output "Deleting blob: $($blobObject.LastModified) - $(((Get-AzureStorageBlob -Container $containerObject.Name -Blob $blobObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey))).ICloudBlob.Uri.AbsoluteUri)"
-                    Remove-AzureStorageBlob -Container $containerObject.Name -Blob $blobObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey) -Force -WhatIf
+                    Remove-AzureStorageBlob -Container $containerObject.Name -Blob $blobObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey) -Force
                 }
             }
         }
