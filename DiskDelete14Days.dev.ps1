@@ -12,7 +12,6 @@ Workflow DiskDelete14Days
     $InformationPreference = "Continue"
     $WarningPreference = "SilentlyContinue"
     $ErrorActionPreference = "Continue"   
-    $connectionName = "AzureRunAsConnection"
 
 
     Select-AzureRmSubscription -Subscription $SubscriptionName
@@ -22,7 +21,7 @@ Workflow DiskDelete14Days
     
     ForEach -Parallel ($diskObject in $diskList) 
     {
-        if ($diskObject.ManagedBy -eq $null)
+        if ($null -eq $diskObject.ManagedBy)
         {
            $vmLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $diskObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Compute/disks/write"
            if (![boolean]$vmLog)
