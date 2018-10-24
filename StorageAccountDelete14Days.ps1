@@ -58,14 +58,15 @@ Workflow StorageAccountDelete14Days {
             ForEach ($containerObject in $containerList) {
                 $blobList = Get-AzureStorageBlob -Container $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
                 if (($containerObject.LastModified -lt $inlineDate) -and !($blobList.Name -match "\.vhd" )) {
-                    Write-Output "$($containerObject.LastModified):$($storageAccountObject.StorageAccountName)\$($containerObject.name) - should be deleted - $(Remove-AzureStorageContainer -Name $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey) -Force -WhatIf)"
+                    $result = Remove-AzureStorageContainer -Name $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey) -PassThru -Force
+                    Write-Output "$($containerObject.LastModified): $($storageAccountObject.StorageAccountName)\$($containerObject.name) - should be deleted. Done: $($result)"
                 }
             }
           
-            #Reinitializing storage accounts without container.
-            $containerList = (Get-AzureStorageContainer -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey))
+            #Removing storage accounts without containers. 
             if (!$containerList) {
-                Write-Output "$($storageAccountObject.StorageAccountName) - should be deleted - $(Remove-AzureRmStorageAccount -Name $storageAccountObject.StorageAccountName -ResourceGroupName $storageAccountObject.ResourceGroupName -Force -WhatIf)"
+                Write-Output "$($storageAccountObject.StorageAccountName) - should be deleted"
+                Remove-AzureRmStorageAccount -Name $storageAccountObject.StorageAccountName -ResourceGroupName $storageAccountObject.ResourceGroupName -Force
             }
         }
     }
