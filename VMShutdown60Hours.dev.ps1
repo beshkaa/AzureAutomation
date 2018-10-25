@@ -43,15 +43,13 @@ Write-Output $inlineDateAdd
 
 ForEach -Parallel ($vmObject in $vmList) 
 {
-    if ((Get-AzureRMVm -Name $vmObject.Name -ResourceGroupName $vmObject.ResourceGroupName -Status).Statuses[1].Code -eq "Powerstate/running")
+    if ((Get-AzureRMVm -Name $vmObject.Name -ResourceGroupName $vmObject.ResourceGroupName -Status).Statuses[1].Code -ne "Powerstate/deallocated")
     {
-        $vmLog = Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $vmObject.Id | Where-Object {($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/start/action") -or ($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/write")}
-        Write-Output $inlineDate.DateTime
-        Write-Output $vmLog
+        $vmLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $vmObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Compute/virtualMachines/start/action", "Microsoft.Compute/virtualMachines/write"
         if (![boolean]$vmLog)
         {
             Write-Output ($vmObject.Name +" should be powered off ")
-            Stop-AzureRmVM -ResourceGroupName $vmObject.ResourceGroupName -Name $vmObject.Name -Force
+            #Stop-AzureRmVM -ResourceGroupName $vmObject.ResourceGroupName -Name $vmObject.Name -Force
         }
     }   
 }

@@ -47,8 +47,8 @@ ForEach -Parallel ($vmObject in $vmList)
         $vmLog = (Get-AzureRMLog -StartTime $inlineDate.DateTime -ResourceId $vmObject.Id).Authorization | Where-Object -Property Action -in -Value "Microsoft.Compute/virtualMachines/start/action", "Microsoft.Compute/virtualMachines/write"
         if (![boolean]$vmLog)
         {
-            Write-Output ($vmObject.Name +" should be powered off ")
-            Stop-AzureRmVM -ResourceGroupName $vmObject.ResourceGroupName -Name $vmObject.Name -Force
+            $result = Stop-AzureRmVM -ResourceGroupName $vmObject.ResourceGroupName -Name $vmObject.Name -Force
+            Write-Output "VM running > 60hours and was shutdowned | $($result.Status) | $($vmObject.Name)"        
         }
     }   
 }

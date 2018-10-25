@@ -1,35 +1,47 @@
-﻿# Enable parallel
-Workflow VmTracker
-{
+﻿
+#Delete VM after 14 Days of deallocation state.
+Workflow StorageAccountDelete14Days {
     param(
-         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
-         [String]
-         $SubscriptionName
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
+        [String]
+        $SubscriptionName,
+         
+        [Parameter(Mandatory = $false)]
+        [String[]]
+        $exceptionList
     )
 
+    $InformationPreference = "Continue"
+    $WarningPreference = "SilentlyContinue"
+    $ErrorActionPreference = "Continue" 
 
-#   $SubscriptionName = "Enterprise - SE - Restore to Azure"
+    $SubscriptionName = "Enterprise - SE - Restore to Azure" #[<----- dev] 
+    # $exceptionList = @("0365diag242","emo")
+    
     Select-AzureRmSubscription -Subscription $SubscriptionName
+    $inlineDate = (Get-Date).AddDays(-1)
+    $storageAccountList = Get-AzureRmStorageAccount
 
-    $vmList = Get-AzureRmResource -ResourceType Microsoft.Compute/virtualMachines
-
-    $inlineDate = Get-Date
-    $inlineDate = $inlineDate.AddHours(-60)
-
-    ForEach -Parallel ($vmObject in $vmList) 
-    {
-        if ((Get-AzureRMVm -Name $vmObject.Name -ResourceGroupName $vmObject.ResourceGroupName -Status).Statuses[1].Code -eq "Powerstate/running")
-        {
-           $vmLog = Get-AzureRMLog -StartTime $inlineDate -ResourceId $vmObject.Id | Where-Object {($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/start/action") -or ($_.Authorization.Action -eq "Microsoft.Compute/virtualMachines/write")}
-           if (![boolean]$vmLog)
-              {
-                  Write-Output "$($vmObject.Id) Should be powered off"
-               }
-       }
-    
-    
+    ForEach -Parallel ($storageAccountObject in $storageAccountList) {
+        if (($storageAccountObject.CreationTime -lt $inlineDate) -and ($exceptionList -notcontains $storageAccountObject.StorageAccountName)) {
+            Write-Output "$($storageAccountObject.StorageAccountName) time $($storageAccountObject.CreationTime)"
+            
+            $storageKey = (Get-AzureRmStorageAccountKey -ResourceGroupName $storageAccountObject.ResourceGroupName -Name $storageAccountObject.StorageAccountName)[0].Value
+       
+            # Context is desearilized -- here and after not able to store in variable 
+            $containerList = Get-AzureStorageContainer -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
+            $WORKFLOW:toProtect = $false
+            ForEach -Parallel ($containerObject in $containerList) {
+                $blobList = Get-AzureStorageBlob -Container $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
+                if ($blobList.Name -match "\.vhd" )  {
+                    Write-Output "Not deleting $($storageAccountObject.StorageAccountName) - $($blobList.Name | Where-Object -FilterScript { ($_ -match "\.vhd") })"
+                  #  $WORKFLOW:toProtect = $true
+                }
+            }    
+           # Write-Output "$($storageAccountObject.StorageAccountName) - $($toProtect)"
+           # $WORKFLOW:toProtect = $false
+        }
     }
-
 }
 
-VmTracker -SubscriptionName "Enterprise - SE - Restore to Azure"-Verbose
+StorageAccountDelete14Days -SubscriptionName "Enterprise - SE - Restore to Azure" -exceptionList emeaprgpersistent
