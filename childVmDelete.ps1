@@ -24,7 +24,7 @@ Workflow childVmDelete {
             if (![boolean]$vmLog) {
                 #$result = Remove-AzureRmResource -ResourceId $vmObject.Id -Force
                 $result = $false   #[DEBUG]
-                Write-Output "VM was not used and been removed | $($result) | $($vmObject.Id) | $($vmLog[0].EventTimestamp)"
+                Write-Output "VM was not used and been removed | $($result) | $($vmObject.Id) $($vmLog[0].EventTimestamp)"
             }
         }
        

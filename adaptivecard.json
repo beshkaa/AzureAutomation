@@ -1,0 +1,141 @@
+{
+    "type": "AdaptiveCard",
+    "body": [
+        {
+            "type": "Container",
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "size": "Medium",
+                    "weight": "Bolder",
+                    "text": "Azure Automation"
+                },
+                {
+                    "type": "ColumnSet",
+                    "columns": [
+                        {
+                            "type": "Column",
+                            "items": [
+                                {
+                                    "type": "Image",
+                                    "style": "Person",
+                                    "url": "https://azure.microsoft.com/svghandler/automation/?width=600&height=315",
+                                    "size": "Small"
+                                }
+                            ],
+                            "width": "auto"
+                        },
+                        {
+                            "type": "Column",
+                            "items": [
+                                {
+                                    "type": "TextBlock",
+                                    "weight": "Bolder",
+                                    "text": "#alertrulename",
+                                    "wrap": true
+                                }
+                            ],
+                            "width": "stretch"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "Container",
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": "Automation job faced with some issues during runbook processing.",
+                    "wrap": true
+                },
+                {
+                    "type": "FactSet",
+                    "facts": [
+                        {
+                            "title": "Severity",
+                            "value": "#severity"
+                        },
+                        {
+                            "title": "Number of events:",
+                            "value": "#searchresultcount"
+                        },
+                        {
+                            "title": "Search Interval",
+                            "value": "#searchinterval"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Action.ShowCard",
+            "title": "Show details",
+            "card": {
+                "type": "AdaptiveCard",
+                "style": "emphasis",
+                "body": [
+                    {
+                        "type": "FactSet",
+                        "facts": [
+                            {
+                                "title": "AlertThresholdOperator",
+                                "value": "#thresholdoperator"
+                            },
+                            {
+                                "title": "AlertThresholdValue",
+                                "value": "#thresholdvalue"
+                            },
+                            {
+                                "title": "LinkToSearchResults",
+                                "value": "#linktosearchresults"
+                            },
+                            {
+                                "title": "ResultCount",
+                                "value": "#searchresultcount"
+                            },
+                            {
+                                "title": "Search Interval End time",
+                                "value": "#searchintervalendtimeutc"
+                            },
+                            {
+                                "title": "Search Interval",
+                                "value": "#searchinterval"
+                            },
+                            {
+                                "title": "Search Interval StartTime",
+                                "value": "#searchintervalstarttimeutc"
+                            },
+                            {
+                                "title": "SearchQuery",
+                                "value": "#searchquery"
+                            },
+                            {
+                                "title": "WorkspaceID",
+                                "value": "#workspaceid"
+                            },
+                            {
+                                "title": "Application ID",
+                                "value": "#applicationid"
+                            },
+                            {
+                                "title": "Subscription ID",
+                                "value": "#subscriptionid"
+                            }
+                        ]
+                    }
+                ],
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json"
+            }
+        },
+        {
+            "type": "Action.OpenUrl",
+            "title": "View",
+            "url": "#linktosearchresults"
+        }
+    ],
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.0"
+}

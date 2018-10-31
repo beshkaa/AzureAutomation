@@ -2,18 +2,33 @@ workflow CleanupOrchestration {
     param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()]
         [String]
-        $SubscriptionName
+        $SubscriptionName,
        
-    )
-    $daysToCheck = "-5"
-    $excepionList = ""
-    $inlineDate = (Get-Date).AddDays($daysToCheck)
+        [Parameter(Mandatory = $true)]
+        [String]
+        $daysToCheck,
 
+        [Parameter(Mandatory = $false)]
+        [String[]]
+        $exceptionListSA,
+
+        [Parameter(Mandatory = $false)]
+        [String[]]
+        $exceptionListRG
+
+    )
+ 
     $InformationPreference = "Continue"
     $WarningPreference = "SilentlyContinue"
     $ErrorActionPreference = "Continue"   
     $connectionName = "AzureRunAsConnection"
 
+    $inlineDate = (Get-Date).AddDays(-$daysToCheck)
+
+    "**************************************************************"
+    "                   Cleanup workflow started."
+    "=============================================================="
+    
     try {
         # Get the connection "AzureRunAsConnection "
         $servicePrincipalConnection = Get-AutomationConnection -Name $connectionName         
@@ -36,19 +51,24 @@ workflow CleanupOrchestration {
         }
     }
 
-    $output = Select-AzureRmSubscription -Subscription $SubscriptionName -ErrorAction Stop
+    $result = Select-AzureRmSubscription -Subscription $SubscriptionName -ErrorAction Stop
 
-    #[DEBUG]devChildRunbook -inlineDate $inlineDate
-
-    "Subscription name     : "+$output.Subscription.Name
+    "Subscription name     : " + $result.Subscription.Name
 
     #VM Cleanup cycle      
     childVmDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate
     
     #Disk Cleanup cycle      
-    childDiskDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate
+    childDiskDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionListSA $exceptionListSA
+
+    #Storage Account Delete
+    childStorageAccountDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionList $exceptionListSA
+
+    #Resource Group Delete
+    childResourceGroupDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionList $exceptionListRG
 
 
-    Write-Output "Cleanup workflow finished."
-
+    "=============================================================="
+    "                   Cleanup workflow finished."
+    "**************************************************************"
 }
