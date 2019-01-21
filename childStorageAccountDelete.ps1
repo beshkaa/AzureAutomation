@@ -34,14 +34,7 @@ workflow childStorageAccountDelete {
             
             #Removing all containers older then 14 days without VHD inside. VHD Deletion is handled as part of DiskDelete job, as req more complecated logic
             ForEach ($containerObject in $containerList) {
-                $blobList = $null
-
-                #Veeam Archive Blob is processed very slow. Getting only containers without Veeam/Archive folder
-                if ( !(Get-AzureStorageBlob -Container $containerObject.Name -MaxCount 1 -Prefix Veeam/Archive -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)) ) {
-                    $blobList = Get-AzureStorageBlob -Container $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)                    
-                }
-
-                #Deleting Containers without VHD. If Veeam/Archive is inside  -- not checking for VHD
+                $blobList = Get-AzureStorageBlob -Container $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey)
                 if (($containerObject.LastModified -lt $inlineDate) -and !($blobList.Name -match "\.vhd" )) {
                     $result = Remove-AzureStorageContainer -Name $containerObject.Name -Context (New-AzureStorageContext -StorageAccountName $storageAccountObject.StorageAccountName -StorageAccountKey $storageKey) -PassThru -Force
                     #$result = $false
