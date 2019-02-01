@@ -55,15 +55,19 @@ workflow CleanupOrchestration {
 
     "Subscription name     : " + $result.Subscription.Name
 
+    Checkpoint-Workflow
     #VM Cleanup cycle      
     childVmDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate
     
+    Checkpoint-Workflow
     #Disk Cleanup cycle      
     childDiskDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionListSA $exceptionListSA
 
+    Checkpoint-Workflow
     #Storage Account Delete
     childStorageAccountDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionList $exceptionListSA
 
+    Checkpoint-Workflow
     #Resource Group Delete
     childResourceGroupDelete -SubscriptionName $SubscriptionName -inlineDate $inlineDate -exceptionList $exceptionListRG
 
