@@ -236,4 +236,4 @@ $resultHTML = $resultHTML.replace('&gt;', '>')
 
 $myCredential = Get-AutomationPSCredential -Name 'O365'
 
-Send-MailMessage -From 'Azure Automation <artem.philippov@veeam.com>' -To 'artem.philippov@veeam.com' -Subject "Azure Automation Report $(Get-Date)" -BodyAsHtml ($resultHTML) -SmtpServer 'buhrelay.amust.local' -Port '25' -Credential $cred
+Send-MailMessage -From 'Azure Automation <artem.philippov@veeam.com>' -To 'artem.philippov@veeam.com' -Subject "Azure Automation Report $(Get-Date)" -BodyAsHtml ($resultHTML) -SmtpServer 'smtp.office365.com' -Port '587' -Credential $myCredential -UseSsl
