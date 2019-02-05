@@ -89,12 +89,52 @@ Select-AzureRmSubscription -SubscriptionId 2550c090-2cef-47e7-9edc-16b8d01a014d
 
 $resourceGroupList = Get-AzureRmResourceGroup
 
+#TABLE CREATION FOR Report Purpose
+$tabelName = "Report Table"
+#Create Table object
+$table = New-Object system.Data.DataTable “$tabelName”
+
+#Define Columns
+$columnResourceGroup = New-Object system.Data.DataColumn ResourceGroup, ([string])
+$columnStorageAccount = New-Object system.Data.DataColumn StorageAccount, ([string])
+$columnName = New-Object system.Data.DataColumn Name, ([string])
+$columnType = New-Object system.Data.DataColumn Type, ([string])
+$columnChildren = New-Object system.Data.DataColumn Children, ([string])
+$columnSize = New-Object system.Data.DataColumn Size, ([string])
+$columnModification = New-Object system.Data.DataColumn Modification, ([string])
+
+#Add the Columns
+$table.columns.add($columnResourceGroup)
+$table.columns.add($columnStorageAccount)
+$table.columns.add($columnName)
+$table.columns.add($columnType)
+$table.columns.add($columnChildren)
+$table.columns.add($columnSize)
+$table.columns.add($columnModification)
+
+
+#Core Processing. Disassabme Azure by ResourceGroup -> Storage Account -> Container 
 foreach ($resourceGroup in $resourceGroupList) {
     $storageAccountList = Get-AzureRmStorageAccount -ResourceGroupName $resourceGroup.ResourceGroupName
-
+    
     if ($null -ne $storageAccountList) {
         foreach ($storageAccount in $storageAccountList) {
- 
+            
+            #Create a row
+            $row = $table.NewRow()
+   
+            #Enter data in the row
+            $row.$columnResourceGroup = "" 
+            $row.$columnStorageAccount = "" 
+            $row.$columnName = "<b>***   Details for $($storageAccount.StorageAccountName)   ***</b>"
+            $row.$columnType = ""
+            $row.$columnChildren = ""
+            $row.$columnSize = ""
+            $row.$columnModification = ""
+
+            #Add the row to the table
+            $table.Rows.Add($row)
+
             # Instantiate a storage context for the storage account.
             $storagePrimaryKey = (Get-AzureRmStorageAccountKey -ResourceGroupName $resourceGroup.ResourceGroupName -StorageAccountName $storageAccount.StorageAccountName)[0].Value
             $storageContext = New-AzureStorageContext -StorageAccountName $storageAccount.StorageAccountName -StorageAccountKey $storagePrimaryKey
@@ -116,17 +156,84 @@ foreach ($resourceGroup in $resourceGroupList) {
                 $containers | ForEach-Object { 
                     $result = Get-ContainerBytes $_.CloudBlobContainer                   
                     $sizeInBytes += $result.containerSize
-                    Write-Output ("Container '{0}' with {1} blobs has a size of {2:F2}MB." -f `
-                            $_.CloudBlobContainer.Name, $result.blobCount, ($result.containerSize / 1MB))
+                    
+                    $row = $table.NewRow()
+   
+                    #Enter data in the row
+                    $row.$columnResourceGroup = $resourceGroup.ResourceGroupName 
+                    $row.$columnStorageAccount = $storageAccount.StorageAccountName 
+                    $row.$columnName = $_.CloudBlobContainer.Name
+                    $row.$columnType = "Container"
+                    $row.$columnChildren = "$($result.blobCount) Blobs"
+                    $row.$columnSize = [math]::round(($result.containerSize / 1GB), 2)
+                    $row.$columnModification = $_.LastModified
+                 
+                    #Add the row to the table
+                    $table.Rows.Add($row)
+                    
+                    
+                    #       Write-Output ("Container '{0}' with {1} blobs has a size of {2:F2}MB. | {3}" -f `
+                    #              $_.CloudBlobContainer.Name, $result.blobCount, ($result.containerSize / 1MB), $_.LastModified )
                 }
-                Write-Output ("Total size calculated for {0} containers is {1:F2}GB | {2} | {3}" -f $containers.Count, ($sizeInBytes / 1GB), $storageAccount.CreationTime, $resourceGroup.ResourceGroupName )
+
+                $row = $table.NewRow()
+   
+                #Enter data in the row
+                $row.$columnResourceGroup = $resourceGroup.ResourceGroupName 
+                $row.$columnStorageAccount = $storageAccount.StorageAccountName 
+                $row.$columnName = "Total"
+                $row.$columnType = "Storage account "
+                $row.$columnChildren = "$($containers.Count) Containers"
+                $row.$columnSize = [math]::round(($sizeInBytes / 1GB), 2)
+                $row.$columnModification = $storageAccount.CreationTime
+             
+                #Add the row to the table
+                $table.Rows.Add($row)    
+                $row = $table.NewRow()
+                $table.Rows.Add($row) 
+                # Write-Output ("Total size calculated for {0} containers is {1:F2}GB | {2} | {3}\{4}" -f $containers.Count, ($sizeInBytes / 1GB), $storageAccount.CreationTime, $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
 
                 # Launch default browser to azure calculator for data management.
                 # Start-Process -FilePath http://www.windowsazure.com/en-us/pricing/calculator/?scenario=data-management
             }
             else {
-                Write-Output ("No containers found to process in storage account '{0}'\'{1}'" -f $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
+                
+                $row = $table.NewRow()
+   
+                #Enter data in the row
+                $row.$columnResourceGroup = $resourceGroup.ResourceGroupName 
+                $row.$columnStorageAccount = $storageAccount.StorageAccountName 
+                $row.$columnName = "Total"
+                $row.$columnType = " "
+                $row.$columnChildren = "0 Containers"
+                $row.$columnSize = " "
+                $row.$columnModification = $storageAccount.CreationTime
+             
+                #Add the row to the table
+                $table.Rows.Add($row)   
+                $row = $table.NewRow()
+                $table.Rows.Add($row) 
+                #Write-Output ("No containers found to process in storage account '{0}\{1}'" -f $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
             }
         }
     }
 }
+
+
+
+#Prepare data and send email
+$preContent = "<h1> Storage consumption details for $(Get-Date) </h1>"
+$Header = @"
+<style>
+TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;}
+TH {border-width: 1px; padding: 3px; border-style: solid; border-color: black; background-color: #6495ED;}
+TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
+</style>
+"@
+$resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children, Type, StorageAccount, ResourceGroup  -PreContent $preContent -Head $Header| Out-String
+$resultHTML = $resultHTML.replace('&lt;', '<')
+$resultHTML = $resultHTML.replace('&gt;', '>')
+
+$myCredential = Get-AutomationPSCredential -Name 'O365'
+
+Send-MailMessage -From 'Azure Automation <artem.philippov@veeam.com>' -To 'artem.philippov@veeam.com' -Subject "Azure Automation Report $(Get-Date)" -BodyAsHtml ($resultHTML) -SmtpServer 'buhrelay.amust.local' -Port '25' -Credential $cred
