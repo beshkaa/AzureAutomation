@@ -264,7 +264,7 @@ TH {border-width: 1px; padding: 3px; border-style: solid; border-color: black; b
 TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 </style>
 "@
-$resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children, Type, StorageAccount, ResourceGroup  -PreContent $preContent -Head $Header| Out-String
+$resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children, Type, StorageAccount  -PreContent $preContent -Head $Header| Out-String
 # Replacement of < > if using tags to format data. 
     #$resultHTML = $resultHTML.replace('&lt;', '<')
     #$resultHTML = $resultHTML.replace('&gt;', '>')
