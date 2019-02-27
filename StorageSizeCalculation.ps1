@@ -75,11 +75,16 @@ function Get-ContainerBytes {
  
     # Calculate size of all blobs.
     $blobCount = 0
+    
+    #Exception for VBR container 
+    If (!(Get-AzureStorageBlob -Container $Container.Name -MaxCount 1 -Prefix Veeam/Archive -Context $storageContext)) {
     Get-AzureStorageBlob -Context $storageContext -Container $Container.Name | 
         ForEach-Object { 
         $containerSizeInBytes += Get-BlobBytes $_ 
         $blobCount++
     }
+    } else { $containerSizeInBytes="Veeam Container"; $blobCount ="?"}
+
     return @{ "containerSize" = $containerSizeInBytes; "blobCount" = $blobCount }
 }
 
@@ -90,7 +95,6 @@ $WarningPreference = "SilentlyContinue"
 $ErrorActionPreference = "Continue"   
 $connectionName = "AzureRunAsConnection"
 
-$inlineDate = (Get-Date).AddDays(-$daysToCheck)
 
 "**************************************************************"
 "                   Calculation started."
@@ -153,21 +157,23 @@ foreach ($resourceGroup in $resourceGroupList) {
     if ($null -ne $storageAccountList) {
         foreach ($storageAccount in $storageAccountList) {
             
-        #[Report] Row with details for below data. Decided to depricate 
+            $blobMetericResourceId = ($storageAccount.Id+"/blobServices/default")
+
+        #[Report] Storage Account Details -- total Size and Objects #
             #Create a row
-            #  $row = $table.NewRow()
+              $row = $table.NewRow()
    
             #Enter data in the row
-            #  $row.$columnResourceGroup = "" 
-            #  $row.$columnStorageAccount = "" 
-            #  $row.$columnName = "<b>***   Details for $($storageAccount.StorageAccountName)   ***</b>"
-            #  $row.$columnType = ""
-            #  $row.$columnChildren = ""
-            #  $row.$columnSize = ""
-            #  $row.$columnModification = ""
+              $row.$columnResourceGroup = "" 
+              $row.$columnStorageAccount = "" 
+              $row.$columnName = "<b> $($storageAccount.StorageAccountName) </b>"
+              $row.$columnType = ""
+              $row.$columnChildren = "$((Get-AzureRmMetric -ResourceId $blobMetericResourceId -MetricName BlobCount -EndTime (Get-Date).AddHours(-2) -AggregationType Total).Data.Total) Objects"
+              $row.$columnSize = "$(  [math]::round(((Get-AzureRmMetric -ResourceId  $storageAccount.Id -MetricName UsedCapacity -EndTime (Get-Date).AddHours(-2) -AggregationType Total).Data.Total/1GB),2)) GB"
+              $row.$columnModification = $storageAccount.CreationTime
 
             #Add the row to the table
-            #  $table.Rows.Add($row)
+              $table.Rows.Add($row)
 
             # Instantiate a storage context for the storage account.
             $storagePrimaryKey = (Get-AzureRmStorageAccountKey -ResourceGroupName $resourceGroup.ResourceGroupName -StorageAccountName $storageAccount.StorageAccountName)[0].Value
@@ -184,12 +190,11 @@ foreach ($resourceGroup in $resourceGroupList) {
                 Get-AzureStorageContainer -Context $storageContext | ForEach-Object { $containers.Add($_) } | Out-Null
             }
 
-            # Calculate size.
-            $sizeInBytes = 0
+            # Calculate size of container. 
             if ($containers.Count -gt 0) {
                 $containers | ForEach-Object { 
                     $result = Get-ContainerBytes $_.CloudBlobContainer                   
-                    $sizeInBytes += $result.containerSize
+                    
                     
                     $row = $table.NewRow()
    
@@ -198,16 +203,17 @@ foreach ($resourceGroup in $resourceGroupList) {
                     $row.$columnStorageAccount = $storageAccount.StorageAccountName 
                     $row.$columnName = $_.CloudBlobContainer.Name
                     $row.$columnType = "Container"
-                    $row.$columnChildren = "$($result.blobCount) Blobs"
-                    $row.$columnSize = [math]::round(($result.containerSize / 1GB), 2)
-                    $row.$columnModification = $_.LastModified
+                    $row.$columnChildren = "$($result.blobCount) blobs"
+                    #Exception for VBR container
+                    if ($result.containerSize -ne "Veeam Container") { $row.$columnSize = "$([math]::round(($result.containerSize / 1MB), 2)) MB" } else { $row.$columnSize = "Veeam Container" }
+                    $row.$columnModification = $_.LastModified.DateTime
                  
                     #Add the row to the table
                     $table.Rows.Add($row)
                     
-                    
-                    Write-Output ("Container '{0}' with {1} blobs has a size of {2:F2}MB. | {3}" -f `
-                            $_.CloudBlobContainer.Name, $result.blobCount, ($result.containerSize / 1MB), $_.LastModified )
+                    #Automation output
+                    Write-Output ("Container '{0}' with {1} blobs has a size of {2:F2} . | {3}" -f `
+                            $_.CloudBlobContainer.Name, $result.blobCount, $result.containerSize, $_.LastModified )
                 }
 
 
@@ -222,32 +228,39 @@ foreach ($resourceGroup in $resourceGroupList) {
                 #  $row.$columnChildren = "$($containers.Count) Containers"
                 #  $row.$columnSize = [math]::round(($sizeInBytes / 1GB), 2)
                 #  $row.$columnModification = $storageAccount.CreationTime
-             
+                #  $table.Rows.Add($row)
+                
                 #[Report ]Add the row to the table to break data between containers
-                  $table.Rows.Add($row)    
                   $row = $table.NewRow()
                   $table.Rows.Add($row) 
                
-                Write-Output ("Total size calculated for {0} containers is {1:F2}GB | {2} | {3}\{4}" -f $containers.Count, ($sizeInBytes / 1GB), $storageAccount.CreationTime, $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
+            ### [TBD] Should be replaced on azmetric
+              #  Write-Output ("Total size calculated for {0} containers is {1:F2}GB | {2} | {3}\{4}" -f $containers.Count, ($sizeInBytes / 1GB), $storageAccount.CreationTime, $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
             }
             else {
                 
                 $row = $table.NewRow()
    
                 #Enter data in the row
-                $row.$columnResourceGroup = $resourceGroup.ResourceGroupName 
-                $row.$columnStorageAccount = $storageAccount.StorageAccountName 
-                $row.$columnName = $storageAccount.StorageAccountName 
+                $row.$columnResourceGroup = ""
+                $row.$columnStorageAccount = ""
+                $row.$columnName = "Empty or Access denied by firewall"
                 $row.$columnType = " "
-                $row.$columnChildren = "0 Containers"
+                $row.$columnChildren = ""
                 $row.$columnSize = " "
-                $row.$columnModification = $storageAccount.CreationTime
+                $row.$columnModification = ""
              
                 #Add the row to the table
-                $table.Rows.Add($row)   
+                $table.Rows.Add($row) 
+                
+                #Add splitter
                 $row = $table.NewRow()
                 $table.Rows.Add($row) 
+
+                #Automation output
                 Write-Output ("No containers found to process in storage account '{0}\{1}'" -f $resourceGroup.ResourceGroupName, $storageAccount.StorageAccountName )
+            
+            
             }
         }
     }
@@ -256,7 +269,7 @@ foreach ($resourceGroup in $resourceGroupList) {
 
 
 #Prepare data and send email
-$preContent = "<h1> Storage consumption details for $(Get-Date) </h1>"
+$preContent = "<h1> Storage consumption details for $(Get-Date) </h1> <h2> 14 Days checkpoint: $((Get-Date).AddDays(-14)) </h2>"
 $Header = @"
 <style>
 TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;}
@@ -264,10 +277,10 @@ TH {border-width: 1px; padding: 3px; border-style: solid; border-color: black; b
 TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
 </style>
 "@
-$resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children, Type, StorageAccount  -PreContent $preContent -Head $Header| Out-String
+$resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children  -PreContent $preContent -Head $Header| Out-String
 # Replacement of < > if using tags to format data. 
-    #$resultHTML = $resultHTML.replace('&lt;', '<')
-    #$resultHTML = $resultHTML.replace('&gt;', '>')
+    $resultHTML = $resultHTML.replace('&lt;', '<')
+    $resultHTML = $resultHTML.replace('&gt;', '>')
 
 $myCredential = Get-AutomationPSCredential -Name 'O365'
 
