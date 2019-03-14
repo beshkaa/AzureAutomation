@@ -78,11 +78,11 @@ function Get-ContainerBytes {
     
     #Exception for VBR container 
     If (!(Get-AzureStorageBlob -Container $Container.Name -MaxCount 1 -Prefix Veeam/Archive -Context $storageContext)) {
-    Get-AzureStorageBlob -Context $storageContext -Container $Container.Name | 
-        ForEach-Object { 
-        $containerSizeInBytes += Get-BlobBytes $_ 
-        $blobCount++
-    }
+        Get-AzureStorageBlob -Context $storageContext -Container $Container.Name | 
+            ForEach-Object { 
+            $containerSizeInBytes += Get-BlobBytes $_ 
+            $blobCount++
+        }
     } else { $containerSizeInBytes="Veeam Container"; $blobCount ="?"}
 
     return @{ "containerSize" = $containerSizeInBytes; "blobCount" = $blobCount }
@@ -156,7 +156,7 @@ foreach ($resourceGroup in $resourceGroupList) {
     
     if ($null -ne $storageAccountList) {
         foreach ($storageAccount in $storageAccountList) {
-            
+        
             $blobMetericResourceId = ($storageAccount.Id+"/blobServices/default")
 
         #[Report] Storage Account Details -- total Size and Objects #
@@ -282,6 +282,12 @@ $resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Childr
     $resultHTML = $resultHTML.replace('&lt;', '<')
     $resultHTML = $resultHTML.replace('&gt;', '>')
 
-$myCredential = Get-AutomationPSCredential -Name 'O365'
+#$myCredential = Get-AutomationPSCredential -Name 'O365'
+#No resolve dns method in automation
+#$smptServer = (Resolve-DnsName -Name veeam.com -Type MX)[0].NameExchange 
 
-Send-MailMessage -From 'Azure Automation <artem.philippov@veeam.com>' -To 'artem.philippov@veeam.com' -Subject "Azure Automation Report $(Get-Date)" -BodyAsHtml ($resultHTML) -SmtpServer 'smtp.office365.com' -Port '587' -Credential $myCredential -UseSsl
+$Domain = 'veeam.com'
+$Uri = 'https://dns.google.com/resolve?name={0}&type=MX' -f $Domain
+$smptServer = ((Invoke-RestMethod -Uri $URI).Answer.data[0] -Split ' ')[1]
+
+Send-MailMessage -From 'Azure Automation <reports@democenter.veeam.com>' -To 'veeam.democenter.reports@veeam.com' -Subject "Azure Automation Report $(Get-Date)" -BodyAsHtml ($resultHTML) -SmtpServer $smptServer -Port '25'
