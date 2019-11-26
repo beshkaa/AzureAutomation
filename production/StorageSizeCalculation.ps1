@@ -271,10 +271,13 @@ foreach ($resourceGroup in $resourceGroupList) {
 #Prepare data and send email
 $preContent = "<h1> Storage consumption details for $(Get-Date) </h1> <h2> 14 Days checkpoint: $((Get-Date).AddDays(-14)) </h2>"
 $Header = @"
+<Title>Azure Usage Report</Title>
 <style>
-TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;}
-TH {border-width: 1px; padding: 3px; border-style: solid; border-color: black; background-color: #6495ED;}
-TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;}
+TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse; width: 75%}
+TH {border-width: 1px; padding: 15px; border-style: solid; border-color: black; background-color: #6495ED; min-width: 150px;}
+TD {border-width: 1px; padding: 5px;  border-bottom: 1px solid #ddd;}
+.alert {font-weight: bold; color: red;}
+.resourcegroup { background-color:#f0f0f0; }
 </style>
 "@
 $resultHTML = $table | ConvertTo-Html -Property Name, Size, Modification, Children  -PreContent $preContent -Head $Header| Out-String
